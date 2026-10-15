@@ -1,0 +1,13 @@
+# Maven build output
+/target/
+
+# Java IDE metadata
+.classpath
+.project
+.settings/
+*.iml
+.idea/
+
+# OS/editor temporary files
+.DS_Store
+*~
