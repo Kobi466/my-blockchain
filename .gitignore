@@ -8,6 +8,10 @@
 *.iml
 .idea/
 
+# Environment & secrets
+.env
+*.env.local
+
 # OS/editor temporary files
 .DS_Store
 *~

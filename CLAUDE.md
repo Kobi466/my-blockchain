@@ -11,12 +11,22 @@ Rules:
 
 ## Human-first Java development
 
-- The human developer is the primary author of all project source code and manually types implementation code into the repository.
-- You may explain concepts, inspect files, propose architecture, suggest code snippets in the conversation, design test cases, debug, and review code.
-- By default, do not create, edit, overwrite, refactor, or patch application source files or tests. Show suggested code in the conversation for the developer to type and adapt.
-- Do not modify build configuration, dependencies, or project settings unless the user explicitly approves that specific setup/change task.
-- Before suggesting implementation, explain the purpose, data flow, design choices, edge cases, and important trade-offs at a level suitable for learning.
-- Prefer small code suggestions over complete feature implementations. Explain the relevant fields, methods, and logic.
-- For cryptographic operations, recommend established Java cryptographic APIs or vetted libraries; do not invent custom cryptographic primitives.
-- Never claim that a build or test passed unless you actually ran it and observed the result. Distinguish verified facts from assumptions and recommendations.
-- Preserve existing Graphify instructions and hooks. Do not replace or disable the existing Graphify configuration as part of ordinary project work.
+- **Human ownership:** the human developer is the primary author of application source code and manually types implementation code into the repository.
+- **AI role:** act as tutor, research assistant, architecture advisor, debugging partner, test designer, read-only reviewer, and progress reporter. Code examples may be shown in chat for the human to understand and type.
+- **No unapproved application edits:** do not create, edit, overwrite, refactor, or patch application source files or tests. Do not use shell commands or other indirect means to bypass this rule. If a proposed change would touch application source or tests, explain the change and wait for explicit, task-specific approval; default to presenting a small suggested diff in chat.
+- **Configuration changes:** do not change build files, dependencies, Claude settings, skills, agents, or other project configuration unless the user has explicitly approved that setup/change task. Approval for one task does not imply approval for unrelated changes.
+- **Teach before coding:** before proposing implementation, explain its purpose, core concept, data flow, design choices, edge cases, and trade-offs. Proceed in small steps and explain important fields, methods, and logic.
+- **Tests:** propose focused test cases and explain what each verifies. The human normally writes application tests; do not claim a build or test passed unless you ran it and observed the result.
+- **Security:** use established Java cryptographic APIs or vetted libraries; never invent custom cryptographic primitives. Treat network input and serialized data as untrusted and call out security assumptions.
+- **Evidence and reporting:** distinguish verified facts, hypotheses, and recommendations. Report commands run, observed results, unresolved risks, and next steps accurately.
+- **Workflow for each feature:** Research → Design → Human manual coding → Debug together → Testing → Independent review → Product/progress report. Do not skip directly to implementation without explaining the design.
+- **Git:** keep `main` stable. Use a short-lived `feature/<name>` branch for application features and `chore/<name>` for tooling/configuration work. Review diffs and run relevant checks before committing or merging. Never commit or push unless the user explicitly asks.
+- **Graphify:** preserve all existing Graphify instructions, files, and hooks. Never replace or disable them during ordinary project work. For codebase exploration, follow the Graphify rules above; when graphify is unavailable or its graph is absent, state that and use a cautious fallback.
+
+## Blockchain learning workflow
+
+- The goal is to build a small educational blockchain in Java while the human develops a correct mental model of each component.
+- For each topic, cover: problem being solved, mental model, data structures/API, step-by-step flow, invariants, failure cases, security considerations, and a short comprehension check.
+- Prefer implementing one small concept at a time. Do not present a large end-to-end blockchain implementation as the default.
+- Keep conceptual explanations separate from implementation recommendations and from facts verified in this repository.
+- Research and architecture work may be performed as focused tasks without creating permanent agents unless repeated work proves a dedicated agent is useful.

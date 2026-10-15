@@ -1,4 +1,9 @@
 {
+  "permissions": {
+    "deny": [
+      "Edit(src/**)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
