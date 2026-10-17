@@ -1,0 +1,152 @@
+package dev.myblockchain.core;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.util.Collections;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class BlockchainTest {
+
+    @Test
+    @DisplayName("Khởi tạo Blockchain: Phải có sẵn Genesis Block và chuỗi hợp lệ")
+    void testGenesisBlockCreation() {
+        System.out.println("\n=== TEST: Genesis Block Creation ===");
+        Blockchain blockchain = new Blockchain();
+
+        System.out.println("Chain size      : " + blockchain.getSize());
+        Block genesis = blockchain.getLatestBlock();
+        System.out.println("Genesis Index   : " + genesis.getIndex());
+        System.out.println("Genesis PrevHash: " + genesis.getPreviousHash());
+        System.out.println("Genesis Hash    : " + genesis.getHash());
+        System.out.println("Is chain valid? : " + blockchain.isChainValid());
+
+        assertEquals(1, blockchain.getSize());
+        assertEquals(0, genesis.getIndex());
+        assertEquals("0", genesis.getPreviousHash());
+        assertTrue(genesis.getTransactions().isEmpty());
+        assertTrue(blockchain.isChainValid());
+    }
+
+    @Test
+    @DisplayName("Thêm Block mới chứa Transactions: Chỉ số và mối nối previousHash phải hợp lệ")
+    void testAddBlocks() {
+        System.out.println("\n=== TEST: Add Blocks & Chain Link Validation ===");
+        Blockchain blockchain = new Blockchain();
+
+        Transaction tx1 = new Transaction("Alice", "Bob", 10L, 1000L);
+        Transaction tx2 = new Transaction("Bob", "Charlie", 5L, 1000L);
+        blockchain.addBlock(List.of(tx1, tx2));
+        System.out.println("Added Block #1 with 2 txs -> Hash: " + blockchain.getLatestBlock().getHash());
+
+        Transaction tx3 = new Transaction("Charlie", "David", 2L, 2000L);
+        blockchain.addBlock(List.of(tx3));
+        System.out.println("Added Block #2 with 1 tx  -> Hash: " + blockchain.getLatestBlock().getHash());
+
+        System.out.println("Current Chain Size: " + blockchain.getSize());
+        Block block2 = blockchain.getLatestBlock();
+        Block block1 = blockchain.getChain().get(1);
+
+        System.out.println("Block #2 PrevHash : " + block2.getPreviousHash());
+        System.out.println("Block #1 Hash     : " + block1.getHash());
+        System.out.println("Chain link match? : " + block2.getPreviousHash().equals(block1.getHash()));
+        System.out.println("Is whole chain valid? " + blockchain.isChainValid());
+
+        assertEquals(3, blockchain.getSize());
+        assertEquals(2, block2.getIndex());
+        assertEquals(block1.getHash(), block2.getPreviousHash());
+        assertEquals(1, block2.getTransactions().size());
+        assertTrue(blockchain.isChainValid());
+    }
+
+        @Test
+    @DisplayName("Phát hiện giả mạo: Thay đổi giao dịch trong Block làm đứt gãy chuỗi (isChainValid == false)")
+    void testTamperBlockTransactionsFailsValidation() throws Exception {
+        System.out.println("\n=== TEST: Tamper Block Transactions Detection ===");
+        Blockchain blockchain = new Blockchain();
+        blockchain.addBlock(List.of(new Transaction("Alice", "Bob", 10L, 1000L)));
+        blockchain.addBlock(List.of(new Transaction("Charlie", "David", 20L, 2000L)));
+
+        System.out.println("Chuỗi ban đầu có 3 blocks. isChainValid: " + blockchain.isChainValid());
+        assertTrue(blockchain.isChainValid(), "Chuỗi ban đầu phải hoàn toàn hợp lệ");
+
+        // Giả lập kẻ tấn công làm giả Block #1 bằng cách thay đổi số tiền từ 10L thành 9999L
+        Block originalBlock1 = blockchain.getChain().get(1);
+        System.out.println("Block #1 gốc    - MerkleRoot: " + originalBlock1.getMerkleRoot());
+        System.out.println("Block #1 gốc    - Block Hash: " + originalBlock1.getHash());
+
+        Transaction hackedTx = new Transaction("Alice", "Bob", 9999L, 1000L);
+        Block tamperedBlock1 = new Block(
+                originalBlock1.getIndex(),
+                originalBlock1.getTimestamp(),
+                originalBlock1.getPreviousHash(),
+                List.of(hackedTx)
+        );
+        System.out.println("Block #1 làm giả- MerkleRoot: " + tamperedBlock1.getMerkleRoot());
+        System.out.println("Block #1 làm giả- Block Hash: " + tamperedBlock1.getHash());
+
+        // Dùng reflection can thiệp vào danh sách chain nội bộ để giả lập dữ liệu bị hacker chỉnh sửa trên đĩa/RAM
+        java.lang.reflect.Field chainField = Blockchain.class.getDeclaredField("chain");
+        chainField.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        List<Block> internalChain = (List<Block>) chainField.get(blockchain);
+        internalChain.set(1, tamperedBlock1);
+
+        System.out.println("-> Đã cấy Block #1 bị làm giả vào chuỗi.");
+        boolean validAfterTamper = blockchain.isChainValid();
+        System.out.println("-> Kết quả kiểm tra isChainValid(): " + validAfterTamper);
+
+        Block block2 = blockchain.getChain().get(2);
+        System.out.println("-> Lý do đứt gãy: Block #2 previousHash (" + block2.getPreviousHash() 
+                + ") không còn khớp với Hash của Block #1 bị sửa (" + tamperedBlock1.getHash() + ")");
+
+        assertFalse(validAfterTamper, "Chuỗi có block bị thay đổi dữ liệu bắt buộc phải trả về false");
+    }
+
+    @Test
+    @DisplayName("Phát hiện đứt gãy liên kết previousHash: Khi mối nối giữa 2 block bị sai lệch")
+    void testBrokenPreviousHashLinkFailsValidation() throws Exception {
+        System.out.println("\n=== TEST: Broken PreviousHash Link Detection ===");
+        Blockchain blockchain = new Blockchain();
+        blockchain.addBlock(List.of(new Transaction("Alice", "Bob", 10L, 1000L)));
+        blockchain.addBlock(List.of(new Transaction("Bob", "Charlie", 5L, 2000L)));
+
+        Block genesis = blockchain.getChain().get(0);
+        System.out.println("Genesis Hash thực tế: " + genesis.getHash());
+
+        // Tạo một Block #1 giả có previousHash sai ("fake_previous_hash")
+        Block fakeBlock1 = new Block(1, System.currentTimeMillis(), "fake_previous_hash", List.of(new Transaction("Alice", "Bob", 10L, 1000L)));
+        System.out.println("Block #1 giả trỏ previousHash về: " + fakeBlock1.getPreviousHash());
+
+        java.lang.reflect.Field chainField = Blockchain.class.getDeclaredField("chain");
+        chainField.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        List<Block> internalChain = (List<Block>) chainField.get(blockchain);
+        internalChain.set(1, fakeBlock1);
+
+        System.out.println("-> Đã cấy Block #1 có previousHash sai vào chuỗi.");
+        boolean validAfterBreak = blockchain.isChainValid();
+        System.out.println("-> Kết quả kiểm tra isChainValid(): " + validAfterBreak);
+        System.out.println("-> Lý do đứt gãy: fakeBlock1.previousHash không khớp genesis.getHash()");
+
+        assertFalse(validAfterBreak, "Chuỗi có previousHash không khớp bắt buộc phải trả về false");
+    }
+
+
+
+    @Test
+    @DisplayName("Bảo vệ tính đóng gói: getChain() không cho phép thêm sửa xóa từ bên ngoài")
+    void testUnmodifiableChain() {
+        System.out.println("\n=== TEST: Unmodifiable Chain Protection ===");
+        Blockchain blockchain = new Blockchain();
+        Block fakeBlock = new Block(1, "fake_prev", Collections.emptyList());
+
+        System.out.println("Attempting to inject a fake block directly into getChain()...");
+        assertThrows(UnsupportedOperationException.class, () -> {
+            blockchain.getChain().add(fakeBlock);
+        });
+        System.out.println("Blocked successfully! UnsupportedOperationException was thrown.");
+    }
+}

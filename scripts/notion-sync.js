@@ -226,12 +226,3 @@ module.exports = {
   NOTION_DAILY_REPORT_PAGE_ID,
   MODULE_PAGES
 };
-  heading2,
-  heading3,
-  callout,
-  codeBlock,
-  bullet,
-  divider,
-  NOTION_PAGE_ID,
-  NOTION_DAILY_REPORT_PAGE_ID
-};
