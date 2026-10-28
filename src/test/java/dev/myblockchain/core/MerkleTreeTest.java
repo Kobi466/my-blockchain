@@ -97,4 +97,64 @@ class MerkleTreeTest {
 
         assertNotEquals(originalRoot, tamperedRoot);
     }
+
+    @Test
+    @DisplayName("Xác thực SPV thành công cho tất cả giao dịch trong cây lẻ và chẵn")
+    void testMerkleProofVerificationSuccess() {
+        Transaction tx1 = new Transaction("Alice", "Bob", 10L, 1000L);
+        Transaction tx2 = new Transaction("Bob", "Charlie", 20L, 1000L);
+        Transaction tx3 = new Transaction("Charlie", "David", 30L, 1000L);
+        List<Transaction> txs = List.of(tx1, tx2, tx3);
+
+        String root = MerkleTree.calculateMerkleRoot(txs);
+        System.out.println("Merkle Root: " + root);
+
+        for (Transaction tx : txs) {
+            List<MerkleProofNode> proof = MerkleTree.generateProof(txs, tx.getTxId());
+            System.out.println("Proof for Tx ID " + tx.getTxId() + ": " + proof);
+            assertFalse(proof.isEmpty());
+            boolean isValid = MerkleTree.verifyProof(tx.getTxId(), proof, root);
+            System.out.println("Is proof valid for Tx ID " + tx.getTxId() + "? -> " + isValid);
+            assertTrue(isValid, "Proof phải hợp lệ cho giao dịch: " + tx.getTxId());
+        }
+    }
+
+    @Test
+    @DisplayName("Giao dịch không tồn tại trong danh sách phải trả về proof rỗng và xác thực thất bại")
+    void testMerkleProofNonExistentTransaction() {
+        Transaction tx1 = new Transaction("Alice", "Bob", 10L, 1000L);
+        Transaction tx2 = new Transaction("Bob", "Charlie", 20L, 1000L);
+        List<Transaction> txs = List.of(tx1, tx2);
+        String root = MerkleTree.calculateMerkleRoot(txs);
+
+        List<MerkleProofNode> proof = MerkleTree.generateProof(txs, "non_existent_tx_id");
+        System.out.println("Proof for non-existent Tx ID: " + proof);
+        assertTrue(proof.isEmpty());
+
+        boolean isValid = MerkleTree.verifyProof("non_existent_tx_id", proof, root);
+        System.out.println("Is proof valid for non-existent Tx ID? -> " + isValid);
+        assertFalse(isValid);
+    }
+
+    @Test
+    @DisplayName("Proof bị làm giả hoặc sai Merkle Root phải bị từ chối")
+    void testTamperedMerkleProofFails() {
+        Transaction tx1 = new Transaction("Alice", "Bob", 10L, 1000L);
+        Transaction tx2 = new Transaction("Bob", "Charlie", 20L, 1000L);
+        List<Transaction> txs = List.of(tx1, tx2);
+        String root = MerkleTree.calculateMerkleRoot(txs);
+        System.out.println("Merkle Root: " + root);
+
+        List<MerkleProofNode> proof = MerkleTree.generateProof(txs, tx1.getTxId());
+        System.out.println("Original Proof for Tx ID " + tx1.getTxId() + ": " + proof);
+
+        // Kẻ tấn công sửa hash trong proof
+        List<MerkleProofNode> fakeProof = List.of(
+            new MerkleProofNode("fake_sibling_hash_000000000000000000000000000000000000000000000", MerkleProofNode.NodePosition.RIGHT)
+        );
+
+        System.out.println("Fake Proof for Tx ID " + tx1.getTxId() + ": " + fakeProof);
+        assertFalse(MerkleTree.verifyProof(tx1.getTxId(), fakeProof, root));
+        assertFalse(MerkleTree.verifyProof(tx1.getTxId(), proof, "fake_merkle_root"));
+    }
 }
