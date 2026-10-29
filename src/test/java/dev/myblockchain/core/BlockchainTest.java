@@ -149,4 +149,45 @@ class BlockchainTest {
         });
         System.out.println("Blocked successfully! UnsupportedOperationException was thrown.");
     }
+
+    @Test
+    @DisplayName("Proof of Work: Block chưa được đào hoặc không đạt target độ khó phải bị từ chối")
+    void testUnminedBlockFailsChainValidation() throws Exception {
+        System.out.println("\n=== TEST: Unmined Block Fails Validation ===");
+        Blockchain blockchain = new Blockchain(2);
+        blockchain.addBlock(List.of(new Transaction("Alice", "Bob", 10L, 1000L)));
+
+        // Tạo một block hợp lệ về hash nhưng CHƯA QUA ĐÀO (nonce = 0, hash không bắt đầu bằng "00")
+        Block block1 = blockchain.getLatestBlock();
+        Block unminedBlock = new Block(
+                block1.getIndex() + 1,
+                System.currentTimeMillis(),
+                block1.getHash(),
+                List.of(new Transaction("Bob", "Charlie", 5L, 2000L)),
+                0L
+        );
+
+        // Giả sử hash tình cờ không bắt đầu bằng "00" (xác suất 255/256)
+        if (!unminedBlock.getHash().startsWith("00")) {
+            java.lang.reflect.Field chainField = Blockchain.class.getDeclaredField("chain");
+            chainField.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            List<Block> internalChain = (List<Block>) chainField.get(blockchain);
+            internalChain.add(unminedBlock);
+
+            System.out.println("Cấy block chưa đào vào chuỗi -> isChainValid(): " + blockchain.isChainValid());
+            assertFalse(blockchain.isChainValid(), "Chuỗi chứa block chưa thỏa mãn PoW bắt buộc phải trả về false");
+        }
+    }
+
+    @Test
+    @DisplayName("Khởi tạo Blockchain với độ khó tùy chỉnh")
+    void testCustomDifficultyBlockchain() {
+        Blockchain blockchain = new Blockchain(1);
+        assertEquals(1, blockchain.getDifficulty());
+        assertTrue(blockchain.getLatestBlock().getHash().startsWith("0"));
+        assertTrue(blockchain.isChainValid());
+
+        assertThrows(IllegalArgumentException.class, () -> new Blockchain(-1));
+    }
 }

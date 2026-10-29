@@ -12,13 +12,19 @@ public class Block {
     private final String previousHash;
     private final List<Transaction> transactions;
     private final String merkleRoot;
-    private final String hash;
+    private String hash;
+
+    private long nonce;
 
     public Block(int index, String previousHash, List<Transaction> transactions) {
-        this(index, System.currentTimeMillis(), previousHash, transactions);
+        this(index, System.currentTimeMillis(), previousHash, transactions, 0L);
     }
 
     public Block(int index, long timestamp, String previousHash, List<Transaction> transactions) {
+        this(index, timestamp, previousHash, transactions, 0L);
+    }
+
+    public Block(int index, long timestamp, String previousHash, List<Transaction> transactions, long nonce) {
         if (index < 0) {
             throw new IllegalArgumentException("Block index cannot be negative");
         }
@@ -28,13 +34,30 @@ public class Block {
         List<Transaction> txList = (transactions == null) ? Collections.emptyList() : new ArrayList<>(transactions);
         this.transactions = Collections.unmodifiableList(txList);
         this.merkleRoot = MerkleTree.calculateMerkleRoot(txList);
+        
+        this.nonce = nonce;
         this.hash = calculateHash();
     }
 
     
     public String calculateHash() {
-        String rawData = index + ":" + previousHash + ":" + timestamp + ":" + (merkleRoot == null ? "" : merkleRoot);
+        String rawData = index + ":" + previousHash + ":" + timestamp + ":" + (merkleRoot == null ? "" : merkleRoot) + ":" + nonce;
         return HashUtil.sha256(rawData);
+    }
+
+    public void mineBlock(int difficulty) {
+        if (difficulty < 0) {
+            throw new IllegalArgumentException("Difficulty cannot be negative");
+        }
+        String target = "0".repeat(difficulty);
+        while (!this.hash.startsWith(target)){
+            this.nonce++;
+            this.hash = calculateHash();
+        }
+    }
+
+    public long getNonce() {
+        return nonce;
     }
 
     public List<Transaction> getTransactions() {

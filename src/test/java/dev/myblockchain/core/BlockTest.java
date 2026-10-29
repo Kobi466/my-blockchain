@@ -85,4 +85,47 @@ class BlockTest {
         assertThrows(NullPointerException.class, () -> new Block(0, null, List.of()));
         System.out.println("Guard clauses passed successfully.");
     }
+
+    @Test
+    @DisplayName("Proof of Work: mineBlock phải tìm ra hash bắt đầu bằng đúng số lượng số 0 yêu cầu")
+    void testMineBlockSuccess() {
+        System.out.println("\n=== TEST: Mine Block Proof of Work ===");
+        Transaction tx = new Transaction("Alice", "Bob", 50L, 1000L);
+        Block block = new Block(1, 1000L, "prev_hash_123", List.of(tx));
+
+        int difficulty = 2; // Yêu cầu hash bắt đầu bằng "00"
+        String target = "0".repeat(difficulty);
+
+        long startTime = System.currentTimeMillis();
+        block.mineBlock(difficulty);
+        long duration = System.currentTimeMillis() - startTime;
+
+        System.out.println("Mined Hash  : " + block.getHash());
+        System.out.println("Final Nonce : " + block.getNonce());
+        System.out.println("Time taken  : " + duration + " ms");
+
+        assertTrue(block.getHash().startsWith(target), "Hash phải bắt đầu bằng: " + target);
+        assertEquals(block.getHash(), block.calculateHash(), "Hash phải khớp với calculateHash()");
+    }
+
+    @Test
+    @DisplayName("Độ khó âm phải ném ra ngoại lệ IllegalArgumentException")
+    void testNegativeDifficultyThrowsException() {
+        Block block = new Block(1, 1000L, "prev_hash_123", List.of());
+        assertThrows(IllegalArgumentException.class, () -> block.mineBlock(-1));
+    }
+
+    @Test
+    @DisplayName("Khởi tạo Block với nonce cụ thể: getHash() phải khớp chính xác với calculateHash()")
+    void testConstructorWithExplicitNonce() {
+        System.out.println("\n=== TEST: Constructor With Explicit Nonce ===");
+        Block block = new Block(1, 1000L, "prev_hash", List.of(), 12345L);
+
+        System.out.println("Block Nonce        : " + block.getNonce());
+        System.out.println("Block getHash()    : " + block.getHash());
+        System.out.println("Block calculateHash: " + block.calculateHash());
+
+        assertEquals(12345L, block.getNonce());
+        assertEquals(block.getHash(), block.calculateHash(), "Hash khởi tạo phải phản ánh chính xác giá trị nonce truyền vào");
+    }
 }

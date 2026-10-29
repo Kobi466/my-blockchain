@@ -7,10 +7,22 @@ import java.util.Objects;
 
 public class Blockchain {
     private final List<Block> chain;
+    private static final int DEFAULT_DIFFICULTY = 4;
+    private final int difficulty;
 
     public Blockchain() {
+        this(DEFAULT_DIFFICULTY);
+    }
+
+    public Blockchain(int difficulty) {
+        if (difficulty < 0) {
+            throw new IllegalArgumentException("Difficulty cannot be negative");
+        }
+        this.difficulty = difficulty;
         this.chain = new ArrayList<>();
-        this.chain.add(this.createGenesisBlock());
+        var genesisBlock = createGenesisBlock();
+        genesisBlock.mineBlock(this.difficulty);
+        this.chain.add(genesisBlock);
     }
 
     private Block createGenesisBlock() {
@@ -24,17 +36,27 @@ public class Blockchain {
     public void addBlock(List<Transaction> transactions) {
         Block latestBlock = this.getLatestBlock();
         Block newBlock = new Block(latestBlock.getIndex() + 1, System.currentTimeMillis(), latestBlock.getHash(), transactions);
+        newBlock.mineBlock(this.difficulty);
         this.chain.add(newBlock);
     }
 
     public boolean isChainValid() {
+        String target = "0".repeat(this.difficulty);
+        
         Block genesisBlock = this.chain.get(0);
         if (genesisBlock.getIndex() != 0 || !"0".equals(genesisBlock.getPreviousHash())) {
             return false;
         }
+
         if (!genesisBlock.getHash().equals(genesisBlock.calculateHash())) {
             return false;
         }
+
+        if(!genesisBlock.getHash().startsWith(target)) {
+            return false;
+        }
+
+
         String genesisMerkleRoot = genesisBlock.getMerkleRoot();
         if (!Objects.equals(genesisMerkleRoot, MerkleTree.calculateMerkleRoot(genesisBlock.getTransactions()))) {
             return false;
@@ -59,6 +81,10 @@ public class Blockchain {
             if (!currentBlock.getPreviousHash().equals(previousBlock.getHash())) {
                 return false;
             }
+
+            if (!currentBlock.getHash().startsWith(target)) {
+                return false;
+            }
         }
         return true;
     }
@@ -69,5 +95,9 @@ public class Blockchain {
 
     public int getSize() {
         return this.chain.size();
+    }
+
+    public int getDifficulty() {
+        return this.difficulty;
     }
 }
