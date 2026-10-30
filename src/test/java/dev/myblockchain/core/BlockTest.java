@@ -128,4 +128,18 @@ class BlockTest {
         assertEquals(12345L, block.getNonce());
         assertEquals(block.getHash(), block.calculateHash(), "Hash khởi tạo phải phản ánh chính xác giá trị nonce truyền vào");
     }
+
+    @Test
+    @DisplayName("Khởi tạo Block có difficulty: mineBlock() tự động đào theo độ khó nội tại")
+    void testBlockSelfMiningWithInternalDifficulty() {
+        System.out.println("\n=== TEST: Block Self Mining With Internal Difficulty ===");
+        Block block = new Block(1, 1000L, "prev_hash", List.of(), 0L, 2);
+
+        assertEquals(2, block.getDifficulty());
+        block.mineBlock(); // Không cần truyền tham số!
+
+        System.out.println("Mined Hash: " + block.getHash());
+        assertTrue(block.getHash().startsWith("00"));
+        assertEquals(block.getHash(), block.calculateHash());
+    }
 }

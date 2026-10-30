@@ -16,17 +16,26 @@ public class Block {
 
     private long nonce;
 
+    private final int difficulty;
+
     public Block(int index, String previousHash, List<Transaction> transactions) {
-        this(index, System.currentTimeMillis(), previousHash, transactions, 0L);
+        this(index, System.currentTimeMillis(), previousHash, transactions, 0L, 0);
     }
 
     public Block(int index, long timestamp, String previousHash, List<Transaction> transactions) {
-        this(index, timestamp, previousHash, transactions, 0L);
+        this(index, timestamp, previousHash, transactions, 0L, 0);
     }
 
     public Block(int index, long timestamp, String previousHash, List<Transaction> transactions, long nonce) {
+        this(index, timestamp, previousHash, transactions, nonce, 0);
+    }
+
+    public Block(int index, long timestamp, String previousHash, List<Transaction> transactions, long nonce, int difficulty) {
         if (index < 0) {
             throw new IllegalArgumentException("Block index cannot be negative");
+        }
+        if (difficulty < 0) {
+            throw new IllegalArgumentException("Difficulty cannot be negative");
         }
         this.index = index;
         this.timestamp = timestamp;
@@ -36,15 +45,21 @@ public class Block {
         this.merkleRoot = MerkleTree.calculateMerkleRoot(txList);
         
         this.nonce = nonce;
+        this.difficulty = difficulty;
         this.hash = calculateHash();
     }
 
     
     public String calculateHash() {
-        String rawData = index + ":" + previousHash + ":" + timestamp + ":" + (merkleRoot == null ? "" : merkleRoot) + ":" + nonce;
+        String rawData = index + ":" + previousHash + ":" + timestamp + ":" + (merkleRoot == null ? "" : merkleRoot) + ":" + nonce + ":" + difficulty;
         return HashUtil.sha256(rawData);
     }
 
+    public void mineBlock(){
+        this.mineBlock(this.difficulty);
+    }
+
+    //test case
     public void mineBlock(int difficulty) {
         if (difficulty < 0) {
             throw new IllegalArgumentException("Difficulty cannot be negative");
@@ -54,6 +69,10 @@ public class Block {
             this.nonce++;
             this.hash = calculateHash();
         }
+    }
+
+    public int getDifficulty() {
+        return difficulty;
     }
 
     public long getNonce() {
@@ -105,6 +124,7 @@ public class Block {
                 ", previousHash='" + previousHash + '\'' +
                 ", merkleRoot='" + merkleRoot + '\'' +
                 ", hash='" + hash + '\'' +
+                ", difficulty=" + difficulty +
                 ", nonce=" + nonce +
                 '}';
     }
