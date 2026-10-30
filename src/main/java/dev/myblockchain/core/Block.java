@@ -96,4 +96,16 @@ public class Block {
     public int hashCode() {
         return Objects.hash(hash);
     }
+
+    @Override 
+    public String toString() {
+        return "Block{" +
+                "index=" + index +
+                ", timestamp=" + timestamp +
+                ", previousHash='" + previousHash + '\'' +
+                ", merkleRoot='" + merkleRoot + '\'' +
+                ", hash='" + hash + '\'' +
+                ", nonce=" + nonce +
+                '}';
+    }
 }

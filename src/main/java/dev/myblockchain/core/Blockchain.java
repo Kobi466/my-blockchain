@@ -33,6 +33,20 @@ public class Blockchain {
         return this.chain.get(this.chain.size() - 1);
     }
 
+    public Block minePendingTransactions(Mempool mempool, int maxBatchSize){
+        Objects.requireNonNull(mempool, "Mempool cannot be null");
+        if (maxBatchSize <= 0) {
+            throw new IllegalArgumentException("Max batch size must be greater than zero");
+        }
+        List<Transaction> batch = mempool.pollBatch(maxBatchSize);
+        Block latestBlock = this.getLatestBlock();
+        Block newBlock = new Block(latestBlock.getIndex() + 1, System.currentTimeMillis(), latestBlock.getHash(), batch);
+        newBlock.mineBlock(this.difficulty);
+        this.chain.add(newBlock);
+        mempool.removeTransactions(batch);
+        return newBlock;
+    }
+
     public void addBlock(List<Transaction> transactions) {
         Block latestBlock = this.getLatestBlock();
         Block newBlock = new Block(latestBlock.getIndex() + 1, System.currentTimeMillis(), latestBlock.getHash(), transactions);

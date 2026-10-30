@@ -190,4 +190,59 @@ class BlockchainTest {
 
         assertThrows(IllegalArgumentException.class, () -> new Blockchain(-1));
     }
+
+    @Test
+    @DisplayName("Tích hợp Mempool: minePendingTransactions đào block và dọn dẹp hàng đợi tự động")
+    void testMinePendingTransactionsIntegration() {
+        System.out.println("\n=== TEST: Mine Pending Transactions Integration ===");
+        Blockchain blockchain = new Blockchain(4);
+        Mempool mempool = new Mempool();
+
+        Transaction tx1 = new Transaction("Alice", "Bob", 10L, 1000L);
+        Transaction tx2 = new Transaction("Bob", "Charlie", 20L, 2000L);
+        Transaction tx3 = new Transaction("Charlie", "David", 30L, 3000L);
+
+        mempool.addTransaction(tx1);
+        mempool.addTransaction(tx2);
+        mempool.addTransaction(tx3);
+        assertEquals(3, mempool.size());
+
+        // Đào block đầu tiên với tối đa 2 giao dịch
+        Block block1 = blockchain.minePendingTransactions(mempool, 2);
+
+        System.out.println("Mined Block #1 Hash: " + block1.getHash());
+        System.out.println("Mempool size after block #1: " + mempool.size());
+
+        assertEquals(2, blockchain.getSize());
+        assertEquals(2, block1.getTransactions().size());
+        assertEquals(1, mempool.size(), "Mempool chỉ còn lại 1 giao dịch (tx3)");
+        assertFalse(mempool.contains(tx1.getTxId()));
+        assertFalse(mempool.contains(tx2.getTxId()));
+        assertTrue(mempool.contains(tx3.getTxId()));
+        assertTrue(blockchain.isChainValid());
+
+        // Đào tiếp block thứ 2 lấy nốt giao dịch còn lại
+        Block block2 = blockchain.minePendingTransactions(mempool, 2);
+        assertEquals(3, blockchain.getSize());
+        assertEquals(1, block2.getTransactions().size());
+        assertEquals(0, mempool.size(), "Mempool phải hoàn toàn trống rỗng");
+        assertTrue(blockchain.isChainValid());
+
+        System.out.println("Mined Block #2 Hash: " + block2.getHash());
+        System.out.println("Mempool size after block #2: " + mempool.size());
+        System.out.println("Is whole chain valid? " + blockchain.isChainValid());
+        System.out.println("Final Chain Size: " + blockchain.getSize());
+        System.out.println("Get Chain: " + blockchain.getChain());
+    }
+
+    @Test
+    @DisplayName("Kiểm tra tham số không hợp lệ trong minePendingTransactions")
+    void testMinePendingTransactionsInvalidInputs() {
+        Blockchain blockchain = new Blockchain(2);
+        Mempool mempool = new Mempool();
+
+        assertThrows(NullPointerException.class, () -> blockchain.minePendingTransactions(null, 10));
+        assertThrows(IllegalArgumentException.class, () -> blockchain.minePendingTransactions(mempool, 0));
+        assertThrows(IllegalArgumentException.class, () -> blockchain.minePendingTransactions(mempool, -1));
+    }
 }
