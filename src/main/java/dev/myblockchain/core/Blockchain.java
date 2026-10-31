@@ -6,9 +6,12 @@ import java.util.List;
 import java.util.Objects;
 
 public class Blockchain {
-    private final List<Block> chain;
-    private static final int DEFAULT_DIFFICULTY = 4;
+    public static final int DEFAULT_DIFFICULTY = 4;
+    public static final int DIFFICULTY_ADJUSTMENT_INTERVAL = 5;
+    public static final long TARGET_BLOCK_TIME_MS = 1000L;
+    
     private final int difficulty;
+    private final List<Block> chain;
 
     public Blockchain() {
         this(DEFAULT_DIFFICULTY);
@@ -26,11 +29,38 @@ public class Blockchain {
     }
 
     private Block createGenesisBlock() {
-        return new Block(0, System.currentTimeMillis(), "0", Collections.emptyList());
+        return new Block(0, System.currentTimeMillis(), "0", Collections.emptyList(), 0L, this.difficulty);
     }
 
     public Block getLatestBlock() {
         return this.chain.get(this.chain.size() - 1);
+    }
+
+    /**
+     * Thuật toán tự điều chỉnh độ khó (DAA):
+     * Sau mỗi chu kỳ DIFFICULTY_ADJUSTMENT_INTERVAL blocks, tính toán lại độ khó dựa trên thời gian thực tế.
+     */
+    public int getNextDifficulty(){
+        Block latestBlock = getLatestBlock();
+        int nextIndex = latestBlock.getIndex() + 1;
+        if(nextIndex % DIFFICULTY_ADJUSTMENT_INTERVAL != 0){
+            return this.difficulty;
+        }
+        Block previousAdjustmentBlock = this.chain.get(nextIndex - DIFFICULTY_ADJUSTMENT_INTERVAL);
+        long actualTimeTaken = latestBlock.getTimestamp() - previousAdjustmentBlock.getTimestamp();
+        // System.out.println("Actual time taken for last " + DIFFICULTY_ADJUSTMENT_INTERVAL + " blocks: " + actualTimeTaken + " ms");
+        long expectedTime = TARGET_BLOCK_TIME_MS * DIFFICULTY_ADJUSTMENT_INTERVAL;
+        // System.out.println("Expected time for last " + DIFFICULTY_ADJUSTMENT_INTERVAL + " blocks: " + expectedTime + " ms");
+        int currentDifficulty = this.difficulty;
+        if (actualTimeTaken < expectedTime / 2) {
+            return currentDifficulty + 1;
+        } else if (actualTimeTaken > expectedTime * 2) {
+            return Math.max(1, currentDifficulty - 1);
+        } else {
+            return currentDifficulty;
+        }
+
+        // this.difficulty = nextDifficulty;
     }
 
     public Block minePendingTransactions(Mempool mempool, int maxBatchSize){
@@ -40,8 +70,16 @@ public class Blockchain {
         }
         List<Transaction> batch = mempool.pollBatch(maxBatchSize);
         Block latestBlock = this.getLatestBlock();
-        Block newBlock = new Block(latestBlock.getIndex() + 1, System.currentTimeMillis(), latestBlock.getHash(), batch);
-        newBlock.mineBlock(this.difficulty);
+        int nextDifficulty = this.getNextDifficulty();
+        Block newBlock = new Block(
+            latestBlock.getIndex() + 1, 
+            System.currentTimeMillis(), 
+            latestBlock.getHash(), 
+            batch, 
+            0L, 
+            nextDifficulty
+        );
+        newBlock.mineBlock(nextDifficulty);
         this.chain.add(newBlock);
         mempool.removeTransactions(batch);
         return newBlock;
@@ -49,15 +87,24 @@ public class Blockchain {
 
     public void addBlock(List<Transaction> transactions) {
         Block latestBlock = this.getLatestBlock();
-        Block newBlock = new Block(latestBlock.getIndex() + 1, System.currentTimeMillis(), latestBlock.getHash(), transactions);
-        newBlock.mineBlock(this.difficulty);
+        int nextDifficulty = this.getNextDifficulty();
+        Block newBlock = new Block(
+            latestBlock.getIndex() + 1, 
+            System.currentTimeMillis(), 
+            latestBlock.getHash(), 
+            transactions,
+            0L,
+            nextDifficulty
+        );
+        newBlock.mineBlock(nextDifficulty);
         this.chain.add(newBlock);
     }
 
     public boolean isChainValid() {
-        String target = "0".repeat(this.difficulty);
         
         Block genesisBlock = this.chain.get(0);
+
+        String target = "0".repeat(genesisBlock.getDifficulty());
         if (genesisBlock.getIndex() != 0 || !"0".equals(genesisBlock.getPreviousHash())) {
             return false;
         }
@@ -66,7 +113,7 @@ public class Blockchain {
             return false;
         }
 
-        if(!genesisBlock.getHash().startsWith(target)) {
+        if(!genesisBlock.getHash().startsWith(target) || genesisBlock.getDifficulty() <= 0) {
             return false;
         }
 
@@ -96,7 +143,8 @@ public class Blockchain {
                 return false;
             }
 
-            if (!currentBlock.getHash().startsWith(target)) {
+            String expectedTarget = "0".repeat(currentBlock.getDifficulty());
+            if (!currentBlock.getHash().startsWith(expectedTarget) || currentBlock.getDifficulty() <= 0) {
                 return false;
             }
         }

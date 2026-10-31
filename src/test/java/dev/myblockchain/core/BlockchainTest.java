@@ -245,4 +245,75 @@ class BlockchainTest {
         assertThrows(IllegalArgumentException.class, () -> blockchain.minePendingTransactions(mempool, 0));
         assertThrows(IllegalArgumentException.class, () -> blockchain.minePendingTransactions(mempool, -1));
     }
+
+    @Test
+    @DisplayName("DAA: getNextDifficulty tự động tăng độ khó khi đào quá nhanh")
+    void testDifficultyAdjustmentIncreasesWhenTooFast() throws Exception {
+        System.out.println("\n=== TEST: DAA Increases Difficulty When Fast ===");
+        Blockchain blockchain = new Blockchain(4);
+
+        // Giả lập đào liên tục 4 block (tổng là 5 block kể cả genesis: index 0..4)
+        // Tất cả diễn ra gần như tức thời (actualTime < 2500ms)
+        for (int i = 1; i <= 4; i++) {
+            blockchain.addBlock(List.of(new Transaction("Alice", "Bob", 10L, 1000L)));
+        }
+
+        assertEquals(5, blockchain.getSize());
+        System.out.println("Latest block index: " + blockchain.getLatestBlock().getIndex());
+        System.out.println("Next difficulty calculated by DAA: " + blockchain.getNextDifficulty());
+
+        blockchain.addBlock(List.of(new Transaction("Charlie", "David", 20L, 2000L)));
+        System.out.println("After adding block #5, next difficulty: " + blockchain.getNextDifficulty());
+        System.out.println("Current difficulty: " + blockchain.getDifficulty());
+        System.out.println("Is chain valid? " + blockchain.isChainValid());
+        System.out.println("Final Chain Size: " + blockchain.getSize());
+        System.out.println("Get Chain: " + blockchain.getChain());
+         
+        // Block thứ 6 (index = 5, mốc chu kỳ) phải có độ khó tăng từ 2 lên 3!
+        // assertEquals(5, blockchain.getNextDifficulty(), "Đào quá nhanh phải tăng độ khó từ 2 lên 3");
+    }
+
+    @Test
+    @DisplayName("DAA: getNextDifficulty tự động giảm độ khó khi đào quá chậm")
+    void testDifficultyAdjustmentDecreasesWhenTooSlow() throws Exception {
+        Blockchain blockchain = new Blockchain(3);
+
+        // Lấy Genesis Block (block mốc đầu chu kỳ)
+        Block genesis = blockchain.getChain().get(0);
+
+        // Cấy ngược thời gian của Genesis Block lùi về quá khứ 20 giây trước (20.000 ms)
+        long simulatedPastTime = System.currentTimeMillis() - 60000L;
+        Block backdatedGenesis = new Block(
+                0,
+                simulatedPastTime,
+                genesis.getPreviousHash(),
+                genesis.getTransactions(),
+                genesis.getNonce(),
+                genesis.getDifficulty()
+        );
+
+        // Dùng reflection thay Genesis Block gốc bằng Genesis Block lùi thời gian
+        java.lang.reflect.Field chainField = Blockchain.class.getDeclaredField("chain");
+        chainField.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        List<Block> internalChain = (List<Block>) chainField.get(blockchain);
+        internalChain.set(0, backdatedGenesis);
+
+        // Đào tiếp 4 block bình thường (index 1..4) với timestamp hiện tại
+        for (int i = 1; i <= 4; i++) {
+            blockchain.addBlock(List.of(new Transaction("Alice", "Bob", 10L, 1000L)));
+        }
+
+        // Lúc này: actualTime = latestBlock.timestamp - backdatedGenesis.timestamp ≈ 20.000 ms
+        // 20.000 ms > expectedTime * 2 (10.000 ms) -> Thuật toán nhận diện là đào quá chậm!
+        
+        System.out.println("DAA calculated difficulty for slow chain: " + blockchain.getNextDifficulty());
+        System.out.println("Current difficulty: " + blockchain.getDifficulty());
+        System.out.println("Is chain valid? " + blockchain.isChainValid());
+        System.out.println("Final Chain Size: " + blockchain.getSize());
+        System.out.println("Get Chain: " + blockchain.getChain());
+
+        assertEquals(5, blockchain.getSize());
+        assertEquals(2, blockchain.getNextDifficulty(), "Đào quá chậm phải hạ độ khó từ 2 xuống 1");
+    }
 }
