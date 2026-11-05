@@ -88,7 +88,7 @@ public class MerkleTree {
         , List<MerkleProofNode> proof
         , String merkleRoot){
         
-        if(txId == null || proof == null || merkleRoot == null || proof == null){
+        if(txId == null || proof == null || merkleRoot == null){
             return false;
         }
 

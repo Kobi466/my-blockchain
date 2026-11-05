@@ -18,8 +18,8 @@ public class Blockchain {
     }
 
     public Blockchain(int difficulty) {
-        if (difficulty < 0) {
-            throw new IllegalArgumentException("Difficulty cannot be negative");
+        if (difficulty <= 0) {
+            throw new IllegalArgumentException("Difficulty must be strictly positive");
         }
         this.difficulty = difficulty;
         this.chain = new ArrayList<>();
@@ -44,14 +44,14 @@ public class Blockchain {
         Block latestBlock = getLatestBlock();
         int nextIndex = latestBlock.getIndex() + 1;
         if(nextIndex % DIFFICULTY_ADJUSTMENT_INTERVAL != 0){
-            return this.difficulty;
+            return latestBlock.getDifficulty();
         }
         Block previousAdjustmentBlock = this.chain.get(nextIndex - DIFFICULTY_ADJUSTMENT_INTERVAL);
         long actualTimeTaken = latestBlock.getTimestamp() - previousAdjustmentBlock.getTimestamp();
         // System.out.println("Actual time taken for last " + DIFFICULTY_ADJUSTMENT_INTERVAL + " blocks: " + actualTimeTaken + " ms");
-        long expectedTime = TARGET_BLOCK_TIME_MS * DIFFICULTY_ADJUSTMENT_INTERVAL;
+        long expectedTime = TARGET_BLOCK_TIME_MS * (DIFFICULTY_ADJUSTMENT_INTERVAL - 1);
         // System.out.println("Expected time for last " + DIFFICULTY_ADJUSTMENT_INTERVAL + " blocks: " + expectedTime + " ms");
-        int currentDifficulty = this.difficulty;
+        int currentDifficulty = latestBlock.getDifficulty();
         if (actualTimeTaken < expectedTime / 2) {
             return currentDifficulty + 1;
         } else if (actualTimeTaken > expectedTime * 2) {
@@ -135,11 +135,23 @@ public class Blockchain {
                 return false;
             }
 
+            // Thẩm định tính toàn vẹn chữ ký mọi giao dịch trong block
+            for (Transaction tx : currentBlock.getTransactions()) {
+                if (!tx.isSignatureValid()) {
+                    return false;
+                }
+            }
+
             if (!currentBlock.getHash().equals(currentBlock.calculateHash())) {
                 return false;
             }
 
             if (!currentBlock.getPreviousHash().equals(previousBlock.getHash())) {
+                return false;
+            }
+
+            // Độ khó trong cùng 1 epoch không được phép tự ý thay đổi
+            if (i % DIFFICULTY_ADJUSTMENT_INTERVAL != 0 && currentBlock.getDifficulty() != previousBlock.getDifficulty()) {
                 return false;
             }
 

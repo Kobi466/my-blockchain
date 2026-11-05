@@ -91,9 +91,11 @@ class BlockTest {
     void testMineBlockSuccess() {
         System.out.println("\n=== TEST: Mine Block Proof of Work ===");
         Transaction tx = new Transaction("Alice", "Bob", 50L, 1000L);
-        Block block = new Block(1, 1000L, "prev_hash_123", List.of(tx));
-
         int difficulty = 2; // Yêu cầu hash bắt đầu bằng "00"
+        
+        Block block = new Block(1, 1000L, "prev_hash_123", List.of(tx), 0L, difficulty);
+
+        // int difficulty = 2; // Yêu cầu hash bắt đầu bằng "00"
         String target = "0".repeat(difficulty);
 
         long startTime = System.currentTimeMillis();

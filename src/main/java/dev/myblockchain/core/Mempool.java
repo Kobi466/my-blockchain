@@ -34,6 +34,9 @@ public class Mempool {
         if (tx == null) {
             throw new IllegalArgumentException("Transaction cannot be null");
         }
+        if(!tx.isSignatureValid()){
+            return false;
+        }
         if (pool.size() >= maxCapacity) {
             throw new IllegalStateException("Mempool is full."+" Current size: " + pool.size() + ", Max capacity: " + maxCapacity);
         }
@@ -44,14 +47,18 @@ public class Mempool {
         return true;
     }
 
-    public synchronized List<Transaction> pollBatch(int maxBatchSize) {
+    public synchronized List<Transaction> peekBatch(int maxBatchSize) {
         if (maxBatchSize <= 0) {
             return Collections.emptyList();
         }
-        List<Transaction> batch = pool.values().stream()
+        return pool.values().stream()
             .limit(maxBatchSize)
             .collect(Collectors.toUnmodifiableList());
+    }
 
+    public synchronized List<Transaction> pollBatch(int maxBatchSize) {
+        List<Transaction> batch = peekBatch(maxBatchSize);
+        removeTransactions(batch);
         return batch;
     }
 

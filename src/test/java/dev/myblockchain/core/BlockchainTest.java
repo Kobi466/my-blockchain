@@ -10,6 +10,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class BlockchainTest {
 
+    private Transaction createSignedTx(String receiver, long amount) {
+        Wallet sender = new Wallet();
+        Transaction tx = new Transaction(sender.getAddress(), receiver, amount, sender.getPublicKeyHex());
+        tx.sign(sender.getPrivateKey());
+        return tx;
+    }
+
     @Test
     @DisplayName("Khởi tạo Blockchain: Phải có sẵn Genesis Block và chuỗi hợp lệ")
     void testGenesisBlockCreation() {
@@ -36,12 +43,12 @@ class BlockchainTest {
         System.out.println("\n=== TEST: Add Blocks & Chain Link Validation ===");
         Blockchain blockchain = new Blockchain();
 
-        Transaction tx1 = new Transaction("Alice", "Bob", 10L, 1000L);
-        Transaction tx2 = new Transaction("Bob", "Charlie", 5L, 1000L);
+        Transaction tx1 = createSignedTx("Bob", 10L);
+        Transaction tx2 = createSignedTx("Charlie", 5L);
         blockchain.addBlock(List.of(tx1, tx2));
         System.out.println("Added Block #1 with 2 txs -> Hash: " + blockchain.getLatestBlock().getHash());
 
-        Transaction tx3 = new Transaction("Charlie", "David", 2L, 2000L);
+        Transaction tx3 = createSignedTx("David", 2L);
         blockchain.addBlock(List.of(tx3));
         System.out.println("Added Block #2 with 1 tx  -> Hash: " + blockchain.getLatestBlock().getHash());
 
@@ -61,13 +68,13 @@ class BlockchainTest {
         assertTrue(blockchain.isChainValid());
     }
 
-        @Test
+    @Test
     @DisplayName("Phát hiện giả mạo: Thay đổi giao dịch trong Block làm đứt gãy chuỗi (isChainValid == false)")
     void testTamperBlockTransactionsFailsValidation() throws Exception {
         System.out.println("\n=== TEST: Tamper Block Transactions Detection ===");
         Blockchain blockchain = new Blockchain();
-        blockchain.addBlock(List.of(new Transaction("Alice", "Bob", 10L, 1000L)));
-        blockchain.addBlock(List.of(new Transaction("Charlie", "David", 20L, 2000L)));
+        blockchain.addBlock(List.of(createSignedTx("Bob", 10L)));
+        blockchain.addBlock(List.of(createSignedTx("David", 20L)));
 
         System.out.println("Chuỗi ban đầu có 3 blocks. isChainValid: " + blockchain.isChainValid());
         assertTrue(blockchain.isChainValid(), "Chuỗi ban đầu phải hoàn toàn hợp lệ");
@@ -77,12 +84,14 @@ class BlockchainTest {
         System.out.println("Block #1 gốc    - MerkleRoot: " + originalBlock1.getMerkleRoot());
         System.out.println("Block #1 gốc    - Block Hash: " + originalBlock1.getHash());
 
-        Transaction hackedTx = new Transaction("Alice", "Bob", 9999L, 1000L);
+        Transaction hackedTx = createSignedTx("Bob", 9999L);
         Block tamperedBlock1 = new Block(
                 originalBlock1.getIndex(),
                 originalBlock1.getTimestamp(),
                 originalBlock1.getPreviousHash(),
-                List.of(hackedTx)
+                List.of(hackedTx),
+                0L,
+                originalBlock1.getDifficulty()
         );
         System.out.println("Block #1 làm giả- MerkleRoot: " + tamperedBlock1.getMerkleRoot());
         System.out.println("Block #1 làm giả- Block Hash: " + tamperedBlock1.getHash());
@@ -198,9 +207,9 @@ class BlockchainTest {
         Blockchain blockchain = new Blockchain(4);
         Mempool mempool = new Mempool();
 
-        Transaction tx1 = new Transaction("Alice", "Bob", 10L, 1000L);
-        Transaction tx2 = new Transaction("Bob", "Charlie", 20L, 2000L);
-        Transaction tx3 = new Transaction("Charlie", "David", 30L, 3000L);
+        Transaction tx1 = createSignedTx("Bob", 10L);
+        Transaction tx2 = createSignedTx("Charlie", 20L);
+        Transaction tx3 = createSignedTx("David", 30L);
 
         mempool.addTransaction(tx1);
         mempool.addTransaction(tx2);
@@ -255,14 +264,14 @@ class BlockchainTest {
         // Giả lập đào liên tục 4 block (tổng là 5 block kể cả genesis: index 0..4)
         // Tất cả diễn ra gần như tức thời (actualTime < 2500ms)
         for (int i = 1; i <= 4; i++) {
-            blockchain.addBlock(List.of(new Transaction("Alice", "Bob", 10L, 1000L)));
+            blockchain.addBlock(List.of(createSignedTx("Bob", 10L)));
         }
 
         assertEquals(5, blockchain.getSize());
         System.out.println("Latest block index: " + blockchain.getLatestBlock().getIndex());
         System.out.println("Next difficulty calculated by DAA: " + blockchain.getNextDifficulty());
 
-        blockchain.addBlock(List.of(new Transaction("Charlie", "David", 20L, 2000L)));
+        blockchain.addBlock(List.of(createSignedTx("David", 20L)));
         System.out.println("After adding block #5, next difficulty: " + blockchain.getNextDifficulty());
         System.out.println("Current difficulty: " + blockchain.getDifficulty());
         System.out.println("Is chain valid? " + blockchain.isChainValid());
@@ -301,7 +310,7 @@ class BlockchainTest {
 
         // Đào tiếp 4 block bình thường (index 1..4) với timestamp hiện tại
         for (int i = 1; i <= 4; i++) {
-            blockchain.addBlock(List.of(new Transaction("Alice", "Bob", 10L, 1000L)));
+            blockchain.addBlock(List.of(createSignedTx("Bob", 10L)));
         }
 
         // Lúc này: actualTime = latestBlock.timestamp - backdatedGenesis.timestamp ≈ 20.000 ms

@@ -9,12 +9,19 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class MempoolTest {
 
+    private Transaction createSignedTx(String receiver, long amount) {
+        Wallet sender = new Wallet();
+        Transaction tx = new Transaction(sender.getAddress(), receiver, amount, sender.getPublicKeyHex());
+        tx.sign(sender.getPrivateKey());
+        return tx;
+    }
+
     @Test
     @DisplayName("Thêm giao dịch hợp lệ vào Mempool và duy trì thứ tự FIFO")
     void testAddTransactionAndFifoOrder() {
         Mempool mempool = new Mempool();
-        Transaction tx1 = new Transaction("Alice", "Bob", 10L, 1000L);
-        Transaction tx2 = new Transaction("Bob", "Charlie", 20L, 2000L);
+        Transaction tx1 = createSignedTx("Bob", 10L);
+        Transaction tx2 = createSignedTx("Charlie", 20L);
 
         assertTrue(mempool.addTransaction(tx1));
         assertTrue(mempool.addTransaction(tx2));
@@ -31,11 +38,20 @@ class MempoolTest {
     @DisplayName("Từ chối giao dịch trùng lặp (Idempotent)")
     void testRejectDuplicateTransaction() {
         Mempool mempool = new Mempool();
-        Transaction tx1 = new Transaction("Alice", "Bob", 10L, 1000L);
+        Transaction tx1 = createSignedTx("Bob", 10L);
 
         assertTrue(mempool.addTransaction(tx1));
         assertFalse(mempool.addTransaction(tx1), "Thêm lần 2 phải trả về false");
         assertEquals(1, mempool.size());
+    }
+
+    @Test
+    @DisplayName("Từ chối giao dịch chưa ký số")
+    void testRejectUnsignedTransaction() {
+        Mempool mempool = new Mempool();
+        Transaction unsignedTx = new Transaction("Alice", "Bob", 10L, 1000L);
+        assertFalse(mempool.addTransaction(unsignedTx), "Giao dịch chưa ký số phải bị từ chối");
+        assertEquals(0, mempool.size());
     }
 
     @Test
@@ -51,9 +67,9 @@ class MempoolTest {
     @DisplayName("Bảo vệ chống DoS/OOM: Ném ngoại lệ khi Mempool vượt quá dung lượng tối đa")
     void testCapacityLimitThrowsException() {
         Mempool mempool = new Mempool(2); // Giới hạn chỉ chứa 2 tx
-        Transaction tx1 = new Transaction("Alice", "Bob", 10L, 1000L);
-        Transaction tx2 = new Transaction("Bob", "Charlie", 20L, 2000L);
-        Transaction tx3 = new Transaction("Charlie", "David", 30L, 3000L);
+        Transaction tx1 = createSignedTx("Bob", 10L);
+        Transaction tx2 = createSignedTx("Charlie", 20L);
+        Transaction tx3 = createSignedTx("David", 30L);
 
         assertTrue(mempool.addTransaction(tx1));
         assertTrue(mempool.addTransaction(tx2));
@@ -64,33 +80,33 @@ class MempoolTest {
     }
 
     @Test
-    @DisplayName("pollBatch lấy đúng số lượng giao dịch và không xóa khỏi Mempool")
+    @DisplayName("peekBatch lấy đúng số lượng giao dịch và không xóa khỏi Mempool")
     void testPollBatchDoesNotRemove() {
         Mempool mempool = new Mempool();
-        Transaction tx1 = new Transaction("Alice", "Bob", 10L, 1000L);
-        Transaction tx2 = new Transaction("Bob", "Charlie", 20L, 2000L);
-        Transaction tx3 = new Transaction("Charlie", "David", 30L, 3000L);
+        Transaction tx1 = createSignedTx("Bob", 10L);
+        Transaction tx2 = createSignedTx("Charlie", 20L);
+        Transaction tx3 = createSignedTx("David", 30L);
 
         mempool.addTransaction(tx1);
         mempool.addTransaction(tx2);
         mempool.addTransaction(tx3);
 
-        List<Transaction> batch = mempool.pollBatch(2);
+        List<Transaction> batch = mempool.peekBatch(2);
         assertEquals(2, batch.size());
         assertEquals(tx1.getTxId(), batch.get(0).getTxId());
         assertEquals(tx2.getTxId(), batch.get(1).getTxId());
-        assertEquals(3, mempool.size(), "pollBatch không được phép làm giảm size của Mempool");
+        assertEquals(3, mempool.size(), "peekBatch không được phép làm giảm size của Mempool");
 
-        assertEquals(0, mempool.pollBatch(0).size());
+        assertEquals(0, mempool.peekBatch(0).size());
     }
 
     @Test
     @DisplayName("removeTransactions dọn dẹp chính xác các giao dịch đã lên chuỗi")
     void testRemoveTransactions() {
         Mempool mempool = new Mempool();
-        Transaction tx1 = new Transaction("Alice", "Bob", 10L, 1000L);
-        Transaction tx2 = new Transaction("Bob", "Charlie", 20L, 2000L);
-        Transaction tx3 = new Transaction("Charlie", "David", 30L, 3000L);
+        Transaction tx1 = createSignedTx("Bob", 10L);
+        Transaction tx2 = createSignedTx("Charlie", 20L);
+        Transaction tx3 = createSignedTx("David", 30L);
 
         mempool.addTransaction(tx1);
         mempool.addTransaction(tx2);

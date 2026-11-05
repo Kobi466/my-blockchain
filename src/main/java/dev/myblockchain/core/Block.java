@@ -56,19 +56,19 @@ public class Block {
     }
 
     public void mineBlock(){
-        this.mineBlock(this.difficulty);
+        String target = "0".repeat(this.difficulty);
+        while(!this.hash.startsWith(target)){
+            this.nonce++;
+            this.hash = this.calculateHash();
+        }
     }
 
     //test case
     public void mineBlock(int difficulty) {
-        if (difficulty < 0) {
-            throw new IllegalArgumentException("Difficulty cannot be negative");
+        if (difficulty != this.difficulty) {
+            throw new IllegalArgumentException("Target difficulty (" + difficulty + ") must match block header difficulty (" + this.difficulty + ")");
         }
-        String target = "0".repeat(difficulty);
-        while (!this.hash.startsWith(target)){
-            this.nonce++;
-            this.hash = calculateHash();
-        }
+        this.mineBlock();
     }
 
     public int getDifficulty() {

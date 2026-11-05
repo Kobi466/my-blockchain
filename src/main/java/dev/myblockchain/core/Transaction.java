@@ -12,6 +12,7 @@ public class Transaction {
     private final String txId;
     private String signature;
     private final String senderPublicKey;
+    public static final String COINBASE_SENDER = "COINBASE";
 
     public Transaction(String from, String to, long amount) {
         this(from, to, amount, System.currentTimeMillis(), null, null);
@@ -60,6 +61,10 @@ public class Transaction {
     }
 
     public boolean isSignatureValid() {
+        // If the transaction is a coinbase transaction, it doesn't require a signature
+        if (COINBASE_SENDER.equals(this.from)) {
+            return "COINBASE_TX".equals(this.signature);
+        }
         if (signature == null || senderPublicKey == null) {
             return false;
         }
@@ -73,6 +78,22 @@ public class Transaction {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    /**
+     * Tạo giao dịch Coinbase đúc coin thưởng cho thợ đào (không cần người gửi).
+     * @param to Địa chỉ ví của thợ đào nhận thưởng.
+     * @param reward Số lượng coin thưởng khối (phải > 0).
+     */
+    public static Transaction createCoinbase(String to, long reward){
+        return new Transaction(
+            COINBASE_SENDER,
+            to,
+            reward,
+            System.currentTimeMillis(),
+            null,
+            "COINBASE_TX"
+        );
     }
 
     public String getFrom() {
